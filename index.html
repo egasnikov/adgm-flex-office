@@ -155,7 +155,11 @@ footer .wrap{max-width:1180px}
 <section id="model"><div class="wrap">
   <div class="eyebrow">Interactive · acquisition &amp; conversion</div>
   <h2>Acquire 1-3 floors, convert to flex — what does it return?</h2>
-  <p class="lead" style="font-size:15px">Defaults anchor to a Sky Tower-style Reem Grade A floor (illustrative; flex every input). Outputs are asset-level levered returns before fees and promote.</p>
+  <p class="lead" style="font-size:15px">Defaults anchor to a Sky Tower-style Reem Grade A floor (illustrative; flex every input). Outputs are asset-level returns before fees and promote.</p>
+  <div style="display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:6px 0 2px">
+    <button type="button" id="mode_lev" style="padding:8px 18px;border:0;background:var(--navy);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Levered (with debt)</button>
+    <button type="button" id="mode_eq" style="padding:8px 18px;border:0;background:#fff;color:var(--navy);font-size:13px;font-weight:600;cursor:pointer">All-equity (no debt)</button>
+  </div>
   <div class="grid2" style="margin-top:18px">
     <div class="panel">
       <div class="inputgrid" id="inp">
@@ -179,7 +183,7 @@ footer .wrap{max-width:1180px}
     </div>
     <div>
       <div class="outwrap">
-        <div class="kpi hl"><div class="k" id="o_irr">—</div><div class="l">Levered IRR (asset)</div></div>
+        <div class="kpi hl"><div class="k" id="o_irr">—</div><div class="l" id="o_irr_l">Levered IRR (asset)</div></div>
         <div class="kpi hl"><div class="k" id="o_mult">—</div><div class="l">Equity multiple</div></div>
         <div class="kpi"><div class="k" id="o_yoc">—</div><div class="l">Yield on cost</div></div>
         <div class="kpi"><div class="k" id="o_dscr">—</div><div class="l">DSCR (stabilized)</div></div>
@@ -197,7 +201,7 @@ footer .wrap{max-width:1180px}
       </div>
     </div>
   </div>
-  <p class="note">Asset-level, before management fee and GP promote. In the base Sky Tower deal, a structured LP return after a standard 8% preferred and 80/20 promote is on the order of ~44% IRR / 3.7x. This tool is indicative — full underwriting sits in the deal model. No confidential purchase price is shown; the default price is a round illustrative figure.</p>
+  <p class="note">Asset-level, before management fee and GP promote. In the base Sky Tower deal, a structured LP return after a standard 8% preferred and 80/20 promote is on the order of ~44% IRR / 3.7x levered, or ~28% IRR / 2.4x all-equity. This tool is indicative — full underwriting sits in the deal model. No confidential purchase price is shown; the default price is a round illustrative figure.</p>
 </div></section>
 
 <!-- ============ RISK ============ -->
@@ -339,7 +343,8 @@ function run(){
   $('o_irr').textContent=r.irr==null?'n/a':pct(r.irr);
   $('o_mult').textContent=r.multiple.toFixed(2)+'x';
   $('o_yoc').textContent=pct(r.yoc);
-  $('o_dscr').textContent=r.dscr.toFixed(2)+'x';
+  $('o_dscr').textContent=isFinite(r.dscr)?r.dscr.toFixed(2)+'x':'n/a';
+  $('o_irr_l').textContent=(mode==='equity'?'Unlevered IRR (asset)':'Levered IRR (asset)');
   $('o_equity').textContent=M(r.equity);
   $('o_noi').textContent=M(r.stabNOI);
   $('o_exit').textContent=M(r.exitVal);
@@ -364,9 +369,21 @@ function run(){
     ['Rent shock (0% esc, cap +200bps)', {...p, escal:0, exitCap:p.exitCap+0.02}],
     ['Combined downside', {...p, occ:0.80, escal:0, exitCap:p.exitCap+0.02}]
   ];
-  $('scnBody').innerHTML=scn.map(([n,pp])=>{const rr=model(pp);return '<tr><td>'+n+'</td><td class="r">'+(rr.irr==null?'n/a':pct(rr.irr))+'</td><td class="r">'+rr.multiple.toFixed(2)+'x</td><td class="r">'+rr.dscr.toFixed(2)+'x</td></tr>';}).join('');
+  $('scnBody').innerHTML=scn.map(([n,pp])=>{const rr=model(pp);return '<tr><td>'+n+'</td><td class="r">'+(rr.irr==null?'n/a':pct(rr.irr))+'</td><td class="r">'+rr.multiple.toFixed(2)+'x</td><td class="r">'+(isFinite(rr.dscr)?rr.dscr.toFixed(2)+'x':'n/a')+'</td></tr>';}).join('');
 }
 
+let mode='levered';
+function setMode(m){
+  mode=m;
+  const lev=$('mode_lev'), eq=$('mode_eq');
+  lev.style.background=m==='levered'?'#051C2C':'#fff'; lev.style.color=m==='levered'?'#fff':'#051C2C'; lev.style.fontWeight=m==='levered'?'700':'600';
+  eq.style.background=m==='equity'?'#051C2C':'#fff'; eq.style.color=m==='equity'?'#fff':'#051C2C'; eq.style.fontWeight=m==='equity'?'700':'600';
+  if(m==='equity'){ $('m_ltv').value=0; } else { $('m_ltv').value=70; }
+  ['m_ltv','m_rate'].forEach(id=>{const el=$(id); el.disabled=(m==='equity'); const f=el.closest('.fld'); if(f) f.style.opacity=(m==='equity')?'0.4':'1';});
+  run();
+}
+$('mode_lev').addEventListener('click',()=>setMode('levered'));
+$('mode_eq').addEventListener('click',()=>setMode('equity'));
 document.querySelectorAll('#supply input').forEach(el=>el.addEventListener('input',sd));
 document.querySelectorAll('#model input').forEach(el=>el.addEventListener('input',run));
 sd(); run();
